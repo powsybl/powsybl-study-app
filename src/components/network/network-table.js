@@ -26,6 +26,7 @@ import {
 } from '../../utils/rest-api';
 import CheckIcon from '@material-ui/icons/Check';
 import ClearIcon from '@material-ui/icons/Clear';
+import LoaderWithOverlay from '../loader-with-overlay';
 
 import ViewColumnIcon from '@material-ui/icons/ViewColumn';
 import { SelectOptionsDialog } from '../../utils/dialogs';
@@ -57,6 +58,7 @@ const useStyles = makeStyles((theme) => ({
         alignItems: 'center',
     },
     table: {
+        position: 'relative',
         marginTop: '20px',
     },
     containerInputSearch: {
@@ -92,6 +94,7 @@ const NetworkTable = (props) => {
     const [popupSelectColumnNames, setPopupSelectColumnNames] = useState(false);
     const [selectedColumnsNames, setSelectedColumnsNames] = useState(null);
 
+    const [dataFetched, setDataFetched] = React.useState({});
     const intl = useIntl();
 
     const isLineOnEditMode = useCallback(
@@ -305,8 +308,10 @@ const NetworkTable = (props) => {
     const renderSubstationsTable = () => {
         return (
             <VirtualizedTable
-                rowCount={props.network.substations.length}
-                rowGetter={({ index }) => props.network.substations[index]}
+                rowCount={props.network.substations.lengthOrFetch()}
+                rowGetter={({ index }) =>
+                    props.network.substations.getOrFetch()[index]
+                }
                 filter={filter}
                 columns={generateTableColumns(TABLES_DEFINITIONS.SUBSTATIONS)}
             />
@@ -330,8 +335,10 @@ const NetworkTable = (props) => {
     function renderLinesTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.lines.length}
-                rowGetter={({ index }) => props.network.lines[index]}
+                rowCount={props.network.lines.lengthOrFetch()}
+                rowGetter={({ index }) =>
+                    props.network.lines.getOrFetch()[index]
+                }
                 filter={filter}
                 columns={generateTableColumns(TABLES_DEFINITIONS.LINES)}
             />
@@ -354,9 +361,9 @@ const NetworkTable = (props) => {
     function renderTwoWindingsTransformersTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.twoWindingsTransformers.length}
+                rowCount={props.network.twoWindingsTransformers.lengthOrFetch()}
                 rowGetter={({ index }) =>
-                    props.network.twoWindingsTransformers[index]
+                    props.network.twoWindingsTransformers.getOrFetch()[index]
                 }
                 filter={filter}
                 columns={[
@@ -372,9 +379,9 @@ const NetworkTable = (props) => {
     function renderThreeWindingsTransformersTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.threeWindingsTransformers.length}
+                rowCount={props.network.threeWindingsTransformers.lengthOrFetch()}
                 rowGetter={({ index }) =>
-                    props.network.threeWindingsTransformers[index]
+                    props.network.threeWindingsTransformers.getOrFetch()[index]
                 }
                 filter={filter}
                 columns={[
@@ -390,8 +397,10 @@ const NetworkTable = (props) => {
     function renderGeneratorsTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.generators.length}
-                rowGetter={({ index }) => props.network.generators[index]}
+                rowCount={props.network.generators.lengthOrFetch()}
+                rowGetter={({ index }) =>
+                    props.network.generators.getOrFetch()[index]
+                }
                 filter={filter}
                 columns={[
                     makeHeaderCell('Generator'),
@@ -404,8 +413,10 @@ const NetworkTable = (props) => {
     function renderLoadsTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.loads.length}
-                rowGetter={({ index }) => props.network.loads[index]}
+                rowCount={props.network.loads.lengthOrFetch()}
+                rowGetter={({ index }) =>
+                    props.network.loads.getOrFetch()[index]
+                }
                 filter={filter}
                 columns={generateTableColumns(TABLES_DEFINITIONS.LOADS)}
             />
@@ -415,8 +426,10 @@ const NetworkTable = (props) => {
     function renderBatteriesTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.batteries.length}
-                rowGetter={({ index }) => props.network.batteries[index]}
+                rowCount={props.network.batteries.lengthOrFetch()}
+                rowGetter={({ index }) =>
+                    props.network.batteries.getOrFetch()[index]
+                }
                 filter={filter}
                 columns={generateTableColumns(TABLES_DEFINITIONS.BATTERIES)}
             />
@@ -426,8 +439,10 @@ const NetworkTable = (props) => {
     function renderDanglingLinesTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.danglingLines.length}
-                rowGetter={({ index }) => props.network.danglingLines[index]}
+                rowCount={props.network.danglingLines.lengthOrFetch()}
+                rowGetter={({ index }) =>
+                    props.network.danglingLines.getOrFetch()[index]
+                }
                 filter={filter}
                 columns={generateTableColumns(
                     TABLES_DEFINITIONS.DANGLING_LINES
@@ -439,8 +454,10 @@ const NetworkTable = (props) => {
     function renderHvdcLinesTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.hvdcLines.length}
-                rowGetter={({ index }) => props.network.hvdcLines[index]}
+                rowCount={props.network.hvdcLines.lengthOrFetch()}
+                rowGetter={({ index }) =>
+                    props.network.hvdcLines.getOrFetch()[index]
+                }
                 filter={filter}
                 columns={generateTableColumns(TABLES_DEFINITIONS.HVDC_LINES)}
             />
@@ -450,9 +467,9 @@ const NetworkTable = (props) => {
     function renderShuntCompensatorsTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.shuntCompensators.length}
+                rowCount={props.network.shuntCompensators.lengthOrFetch()}
                 rowGetter={({ index }) =>
-                    props.network.shuntCompensators[index]
+                    props.network.shuntCompensators.getOrFetch()[index]
                 }
                 filter={filter}
                 columns={generateTableColumns(
@@ -465,9 +482,9 @@ const NetworkTable = (props) => {
     function renderStaticVarCompensatorsTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.staticVarCompensators.length}
+                rowCount={props.network.staticVarCompensators.lengthOrFetch()}
                 rowGetter={({ index }) =>
-                    props.network.staticVarCompensators[index]
+                    props.network.staticVarCompensators.getOrFetch()[index]
                 }
                 filter={filter}
                 columns={generateTableColumns(
@@ -480,9 +497,9 @@ const NetworkTable = (props) => {
     function renderLccConverterStationsTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.lccConverterStations.length}
+                rowCount={props.network.lccConverterStations.lengthOrFetch()}
                 rowGetter={({ index }) =>
-                    props.network.lccConverterStations[index]
+                    props.network.lccConverterStations.getOrFetch()[index]
                 }
                 filter={filter}
                 columns={generateTableColumns(
@@ -495,9 +512,9 @@ const NetworkTable = (props) => {
     function renderVscConverterStationsTable() {
         return (
             <VirtualizedTable
-                rowCount={props.network.vscConverterStations.length}
+                rowCount={props.network.vscConverterStations.lengthOrFetch()}
                 rowGetter={({ index }) =>
-                    props.network.vscConverterStations[index]
+                    props.network.vscConverterStations.getOrFetch()[index]
                 }
                 filter={filter}
                 columns={generateTableColumns(
@@ -528,6 +545,26 @@ const NetworkTable = (props) => {
         },
         [rowFilter]
     );
+
+    function TabHolder(index, resource, renderer) {
+        if (tabIndex !== index) return;
+        if (resource.values === undefined) {
+            if (dataFetched[index])
+                setDataFetched({ ...dataFetched, ...{ [index]: false } });
+            resource.getOrFetch(() =>
+                setDataFetched({ ...dataFetched, ...{ [index]: true } })
+            );
+            return (
+                <LoaderWithOverlay
+                    color="inherit"
+                    loaderSize={70}
+                    isFixed={false}
+                    loadingMessageText={'Loading'}
+                />
+            );
+        }
+        return renderer();
+    }
 
     const handleOpenPopupSelectColumnNames = () => {
         setPopupSelectColumnNames(true);
@@ -680,39 +717,76 @@ const NetworkTable = (props) => {
                 </Grid>
                 <div className={classes.table} style={{ flexGrow: 1 }}>
                     {/*This render is fast, rerender full dom everytime*/}
-                    {tabIndex === TABLES_DEFINITIONS.SUBSTATIONS.index &&
-                        renderSubstationsTable()}
-                    {tabIndex === TABLES_DEFINITIONS.VOLTAGE_LEVELS.index &&
-                        renderVoltageLevelsTable()}
-                    {tabIndex === TABLES_DEFINITIONS.LINES.index &&
-                        renderLinesTable()}
-                    {tabIndex ===
-                        TABLES_DEFINITIONS.TWO_WINDINGS_TRANSFORMERS.index &&
-                        renderTwoWindingsTransformersTable()}
-                    {tabIndex ===
-                        TABLES_DEFINITIONS.THREE_WINDINGS_TRANSFORMERS.index &&
-                        renderThreeWindingsTransformersTable()}
-                    {tabIndex === TABLES_DEFINITIONS.GENERATORS.index &&
-                        renderGeneratorsTable()}
-                    {tabIndex === TABLES_DEFINITIONS.LOADS.index &&
-                        renderLoadsTable()}
-                    {tabIndex === TABLES_DEFINITIONS.SHUNT_COMPENSATORS.index &&
-                        renderShuntCompensatorsTable()}
-                    {tabIndex ===
-                        TABLES_DEFINITIONS.STATIC_VAR_COMPENSATORS.index &&
-                        renderStaticVarCompensatorsTable()}
-                    {tabIndex === TABLES_DEFINITIONS.BATTERIES.index &&
-                        renderBatteriesTable()}
-                    {tabIndex === TABLES_DEFINITIONS.HVDC_LINES.index &&
-                        renderHvdcLinesTable()}
-                    {tabIndex ===
-                        TABLES_DEFINITIONS.LCC_CONVERTER_STATIONS.index &&
-                        renderLccConverterStationsTable()}
-                    {tabIndex ===
-                        TABLES_DEFINITIONS.VSC_CONVERTER_STATIONS.index &&
-                        renderVscConverterStationsTable()}
-                    {tabIndex === TABLES_DEFINITIONS.DANGLING_LINES.index &&
-                        renderDanglingLinesTable()}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.SUBSTATIONS.index,
+                        props.network.substations,
+                        renderSubstationsTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.VOLTAGE_LEVELS.index,
+                        props.network.substations,
+                        renderVoltageLevelsTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.LINES.index,
+                        props.network.lines,
+                        renderLinesTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.TWO_WINDINGS_TRANSFORMERS.index,
+                        props.network.twoWindingsTransformers,
+                        renderTwoWindingsTransformersTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.THREE_WINDINGS_TRANSFORMERS.index,
+                        props.network.threeWindingsTransformers,
+                        renderThreeWindingsTransformersTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.GENERATORS.index,
+                        props.network.generators,
+                        renderGeneratorsTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.LOADS.index,
+                        props.network.loads,
+                        renderLoadsTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.SHUNT_COMPENSATORS.index,
+                        props.network.shuntCompensators,
+                        renderShuntCompensatorsTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.STATIC_VAR_COMPENSATORS.index,
+                        props.network.staticVarCompensators,
+                        renderStaticVarCompensatorsTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.BATTERIES.index,
+                        props.network.batteries,
+                        renderBatteriesTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.HVDC_LINES.index,
+                        props.network.hvdcLines,
+                        renderHvdcLinesTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.LCC_CONVERTER_STATIONS.index,
+                        props.network.lccConverterStations,
+                        renderLccConverterStationsTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.VSC_CONVERTER_STATIONS.index,
+                        props.network.vscConverterStations,
+                        renderVscConverterStationsTable
+                    )}
+                    {TabHolder(
+                        TABLES_DEFINITIONS.DANGLING_LINES.index,
+                        props.network.danglingLines,
+                        renderDanglingLinesTable
+                    )}
                 </div>
             </>
         )

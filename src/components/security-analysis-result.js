@@ -13,6 +13,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import Select from '@material-ui/core/Select';
 import { makeStyles } from '@material-ui/core/styles';
 import MenuItem from '@material-ui/core/MenuItem';
+import LoaderWithOverlay from './loader-with-overlay';
+import { useCallback } from 'react';
 
 export const NMK_TYPE_RESULT = {
     CONSTRAINTS_FROM_CONTINGENCIES: 'constraints-from-contingencies',
@@ -35,10 +37,11 @@ const useStyles = makeStyles((theme) => ({
     },
 }));
 
-const SecurityAnalysisResult = ({ result, onClickNmKConstraint }) => {
+const SecurityAnalysisResult = ({ resultFetcher, onClickNmKConstraint }) => {
     const classes = useStyles();
 
     const [tabIndex, setTabIndex] = React.useState(0);
+    const [resultFetched, setResultFetched] = React.useState(false);
 
     const [nmkTypeResult, setNmkTypeResult] = React.useState(
         NMK_TYPE_RESULT.CONSTRAINTS_FROM_CONTINGENCIES
@@ -480,33 +483,54 @@ const SecurityAnalysisResult = ({ result, onClickNmKConstraint }) => {
                 </div>
                 <div style={{ flexGrow: 1 }}>
                     {tabIndex === 0 &&
-                        renderTableN(result.preContingencyResult)}
+                        renderTableN(resultFetcher.values.preContingencyResult)}
                     {tabIndex === 1 &&
                         nmkTypeResult ===
                             NMK_TYPE_RESULT.CONSTRAINTS_FROM_CONTINGENCIES &&
                         renderTableNmKContingencies(
-                            result.postContingencyResults
+                            resultFetcher.values.postContingencyResults
                         )}
                     {tabIndex === 1 &&
                         nmkTypeResult ===
                             NMK_TYPE_RESULT.CONTINGENCIES_FROM_CONSTRAINTS &&
                         renderTableNmKConstraints(
-                            result.postContingencyResults
+                            resultFetcher.values.postContingencyResults
                         )}
                 </div>
             </>
         );
     }
 
-    return result && renderTabs();
+    const waiter = useCallback(
+        (renderer) => {
+            if (resultFetcher.values === undefined) {
+                if (resultFetched) {
+                    setResultFetched(false);
+                }
+                resultFetcher.get(() => setResultFetched(true));
+                return (
+                    <LoaderWithOverlay
+                        color="inherit"
+                        loaderSize={70}
+                        isFixed={true}
+                        loadingMessageText={'Loading'}
+                    />
+                );
+            }
+            return renderer();
+        },
+        [resultFetcher, resultFetched]
+    );
+
+    return waiter(() => renderTabs());
 };
 
 SecurityAnalysisResult.defaultProps = {
-    result: null,
+    resultFetcher: null,
 };
 
 SecurityAnalysisResult.propTypes = {
-    result: PropTypes.object,
+    resultFetcher: PropTypes.object,
     onClickNmKConstraint: PropTypes.func,
 };
 

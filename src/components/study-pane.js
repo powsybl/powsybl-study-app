@@ -82,6 +82,7 @@ import IconButton from '@material-ui/core/IconButton';
 import clsx from 'clsx';
 import Divider from '@material-ui/core/Divider';
 import ChevronRightIcon from '@material-ui/icons/ChevronRight';
+import { RemoteRessourceHandler } from './util/remote-ressource-handler';
 
 const drawerWidth = 300;
 
@@ -177,6 +178,7 @@ const StudyPane = (props) => {
     const lineFlowMode = useSelector((state) => state.lineFlowMode);
 
     const lineFlowColorMode = useSelector((state) => state.lineFlowColorMode);
+    const [substationsLoaded, setSubstationsLoaded] = useState(false);
 
     const lineFlowAlertThreshold = useSelector((state) =>
         Number(state.lineFlowAlertThreshold)
@@ -297,15 +299,11 @@ const StudyPane = (props) => {
     }, [studyName, userId]);
 
     const updateSecurityAnalysisResult = useCallback(() => {
-        fetchSecurityAnalysisResult(studyName, userId).then(function (
-            response
-        ) {
-            if (response.ok) {
-                response.json().then((result) => {
-                    setSecurityAnalysisResult(result);
-                });
-            }
-        });
+        setSecurityAnalysisResult(
+            new RemoteRessourceHandler(() =>
+                fetchSecurityAnalysisResult(studyName, userId)
+            )
+        );
     }, [studyName, userId]);
 
     const handleStartSecurityAnalysis = (contingencyListNames) => {
@@ -373,87 +371,44 @@ const StudyPane = (props) => {
 
     const [position, setPosition] = useState([-1, -1]);
 
-    const loadNetwork = useCallback(() => {
-        console.info(`Loading network of study '${studyName}'...`);
-        updateLoadFlowResult();
-        updateSecurityAnalysisResult();
-        updateSecurityAnalysisStatus();
-
-        const substations = fetchSubstations(studyName, userId);
-        const lines = fetchLines(studyName, userId);
-        const twoWindingsTransformers = fetchTwoWindingsTransformers(
-            studyName,
-            userId
-        );
-        const threeWindingsTransformers = fetchThreeWindingsTransformers(
-            studyName,
-            userId
-        );
-        const generators = fetchGenerators(studyName, userId);
-        const loads = fetchLoads(studyName, userId);
-        const batteries = fetchBatteries(studyName, userId);
-        const danglingLines = fetchDanglingLines(studyName, userId);
-        const hvdcLines = fetchHvdcLines(studyName, userId);
-        const lccConverterStations = fetchLccConverterStations(
-            studyName,
-            userId
-        );
-        const vscConverterStations = fetchVscConverterStations(
-            studyName,
-            userId
-        );
-        const shuntCompensators = fetchShuntCompensators(studyName, userId);
-        const staticVarCompensators = fetchStaticVarCompensators(
-            studyName,
-            userId
-        );
-
-        Promise.all([
-            substations,
-            lines,
-            twoWindingsTransformers,
-            threeWindingsTransformers,
-            generators,
-            loads,
-            batteries,
-            danglingLines,
-            hvdcLines,
-            lccConverterStations,
-            vscConverterStations,
-            shuntCompensators,
-            staticVarCompensators,
-        ])
-            .then((values) => {
-                const network = new Network();
-                network.setSubstations(values[0]);
-                network.setLines(values[1]);
-                network.setTwoWindingsTransformers(values[2]);
-                network.setThreeWindingsTransformers(values[3]);
-                network.setGenerators(values[4]);
-                network.setLoads(values[5]);
-                network.setBatteries(values[6]);
-                network.setDanglingLines(values[7]);
-                network.setHvdcLines(values[8]);
-                network.setLccConverterStations(values[9]);
-                network.setVscConverterStations(values[10]);
-                network.setShuntCompensators(values[11]);
-                network.setStaticVarCompensators(values[12]);
-
+    const loadNetwork = useCallback(
+        (isUpdate) => {
+            console.info(`Loading network of study '${studyName}'...`);
+            updateLoadFlowResult();
+            updateSecurityAnalysisResult();
+            updateSecurityAnalysisStatus();
+            if (!isUpdate) {
+                const network = new Network(
+                    () => fetchSubstations(studyName, userId),
+                    () => fetchLines(studyName, userId),
+                    () => fetchTwoWindingsTransformers(studyName, userId),
+                    () => fetchThreeWindingsTransformers(studyName, userId),
+                    () => fetchGenerators(studyName, userId),
+                    () => fetchLoads(studyName, userId),
+                    () => fetchBatteries(studyName, userId),
+                    () => fetchDanglingLines(studyName, userId),
+                    () => fetchHvdcLines(studyName, userId),
+                    () => fetchLccConverterStations(studyName, userId),
+                    () => fetchVscConverterStations(studyName, userId),
+                    () => fetchShuntCompensators(studyName, userId),
+                    () => fetchStaticVarCompensators(studyName, userId),
+                    (error) => {
+                        console.error(error.message);
+                        setStudyNotFound(true);
+                    }
+                );
                 dispatch(loadNetworkSuccess(network));
-            })
-            .catch(function (error) {
-                console.error(error.message);
-                setStudyNotFound(true);
-            });
-        // Note: studyName and dispatch don't change
-    }, [
-        studyName,
-        userId,
-        dispatch,
-        updateLoadFlowResult,
-        updateSecurityAnalysisResult,
-        updateSecurityAnalysisStatus,
-    ]);
+            }
+        },
+        [
+            studyName,
+            userId,
+            dispatch,
+            updateLoadFlowResult,
+            updateSecurityAnalysisResult,
+            updateSecurityAnalysisStatus,
+        ]
+    );
 
     const updateNetwork = useCallback(
         (substationsIds) => {
@@ -462,7 +417,7 @@ const StudyPane = (props) => {
                 userId,
                 substationsIds
             );
-
+            console.info('network update');
             Promise.all([updatedEquipments])
                 .then((values) => {
                     network.updateSubstations(values[0].substations);
@@ -549,7 +504,6 @@ const StudyPane = (props) => {
     useEffect(() => {
         websocketExpectedCloseRef.current = false;
         dispatch(openStudy(studyName, userId));
-
         loadNetwork();
         loadGeoData();
         const ws = connectNotifications(studyName);
@@ -585,12 +539,17 @@ const StudyPane = (props) => {
     }, [location.search]);
 
     useEffect(() => {
-        if (network && !filteredNominalVoltages) {
+        if (network && !substationsLoaded)
+            network.substations.getOrFetch(() => setSubstationsLoaded(true));
+    }, [substationsLoaded, network]);
+
+    useEffect(() => {
+        if (network && substationsLoaded && !filteredNominalVoltages) {
             dispatch(
                 filteredNominalVoltagesUpdated(network.getNominalVoltages())
             );
         }
-    }, [network, filteredNominalVoltages, dispatch]);
+    }, [network, filteredNominalVoltages, dispatch, substationsLoaded]);
 
     const showVoltageLevelDiagram = useCallback(
         (voltageLevelId) => {
@@ -689,7 +648,8 @@ const StudyPane = (props) => {
             ) {
                 //TODO reload data more intelligently
                 updateSld();
-                loadNetwork();
+                loadNetwork(true);
+                updateNetwork();
             } else if (
                 studyUpdatedForce.eventData.headers['updateType'] ===
                 'loadflow_status'
@@ -715,6 +675,7 @@ const StudyPane = (props) => {
         studyUpdatedForce,
         studyName,
         loadNetwork,
+        updateNetwork,
         updateLoadFlowResult,
         updateSecurityAnalysisStatus,
         updateSecurityAnalysisResult,
@@ -1134,7 +1095,7 @@ const StudyPane = (props) => {
                 }}
             >
                 <SecurityAnalysisResult
-                    result={securityAnalysisResult}
+                    resultFetcher={securityAnalysisResult}
                     onClickNmKConstraint={onClickNmKConstraint}
                 />
             </Paper>

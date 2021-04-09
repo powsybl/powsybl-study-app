@@ -51,6 +51,7 @@ const useStyles = makeStyles((theme) => ({
 
 const OverloadedLinesView = (props) => {
     const [lines, setLines] = useState(null);
+    const [linesLoaded, setLinesLoaded] = useState(false);
     const classes = useStyles();
 
     const intl = useIntl();
@@ -83,28 +84,26 @@ const OverloadedLinesView = (props) => {
                         load: loads[i],
                         limit: limits[i],
                         // conversion [r,g,b] => #XXXXXX ; concat '0' to (color value) in hexadecimal keep last 2 characters
-                        //eslint-disable-next-line
                         color:
                             '#' +
                             color
-                                .map((c) =>
-                                    ('0' + Math.max(c, 0).toString(16)).slice(
-                                        -2
-                                    )
-                                )
+                                .map((c) => ('0' + c.toString(16)).slice(-2))
                                 .join(''),
                     };
                 }
             }
             return fields;
         };
-
-        setLines(
-            props.lines
-                .map((line) => makeData(line))
-                .sort((a, b) => b.overload - a.overload)
-        );
-    }, [props.lines, props.network, props.lineFlowAlertThreshold]);
+        if (props.lines.getOrFetch(() => setLinesLoaded(true)) === undefined)
+            setLinesLoaded(false);
+        else
+            setLines(
+                props.lines
+                    .getOrFetch(() => setLinesLoaded(true))
+                    .map((line) => makeData(line))
+                    .sort((a, b) => b.overload - a.overload)
+            );
+    }, [props.lines, props.network, props.lineFlowAlertThreshold, linesLoaded]);
 
     const filter = useCallback(
         (line) => line.overload > props.lineFlowAlertThreshold,
@@ -197,7 +196,7 @@ OverloadedLinesView.defaultProps = {
 };
 
 OverloadedLinesView.propTypes = {
-    lines: PropTypes.array,
+    lines: PropTypes.object,
     lineFlowAlertThreshold: PropTypes.number,
     network: PropTypes.object,
 };

@@ -7,6 +7,7 @@
 
 import React, {
     forwardRef,
+    useEffect,
     useImperativeHandle,
     useMemo,
     useRef,
@@ -54,6 +55,10 @@ const NetworkMap = forwardRef((props, ref) => {
     const [tooltip, setTooltip] = useState({});
 
     const theme = useTheme();
+
+    const [substationsLoaded, setSubstationsLoaded] = useState(false);
+    const [linesLoaded, setLinesLoaded] = useState(false);
+
     const foregroundNeutralColor = useMemo(() => {
         const labelColor = decomposeColor(theme.palette.text.primary).values;
         labelColor[3] *= 255;
@@ -75,6 +80,25 @@ const NetworkMap = forwardRef((props, ref) => {
         }),
         [setCentered]
     );
+
+    useEffect(() => {
+        if (
+            props.network &&
+            props.network.substations.getOrFetch(() =>
+                setSubstationsLoaded(true)
+            ) === undefined
+        )
+            setSubstationsLoaded(false);
+    }, [props.network, substationsLoaded]);
+
+    useEffect(() => {
+        if (
+            props.network &&
+            props.network.lines.getOrFetch(() => setLinesLoaded(true)) ===
+                undefined
+        )
+            setLinesLoaded(false);
+    }, [props.network, linesLoaded]);
 
     // Do this in onAfterRender because when doing it in useEffect (triggered by calling setDeck()),
     // it doesn't work in the case of using the browser backward/forward buttons (because in this particular case,
@@ -260,12 +284,14 @@ const NetworkMap = forwardRef((props, ref) => {
     if (
         props.network !== null &&
         props.geoData !== null &&
-        props.filteredNominalVoltages !== null
+        props.filteredNominalVoltages !== null &&
+        substationsLoaded &&
+        linesLoaded
     ) {
         layers.push(
             new SubstationLayer({
                 id: SUBSTATION_LAYER_PREFIX,
-                data: props.network.substations,
+                data: props.network.substations.values || [],
                 network: props.network,
                 geoData: props.geoData,
                 useName: props.useName,

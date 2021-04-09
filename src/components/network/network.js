@@ -5,37 +5,39 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import { RemoteRessourceHandler } from '../util/remote-ressource-handler';
+
 const elementIdIndexer = (map, element) => {
     map.set(element.id, element);
     return map;
 };
 
 export default class Network {
-    substations = [];
+    substations;
 
-    lines = [];
+    lines;
 
-    twoWindingsTransformers = [];
+    twoWindingsTransformers;
 
-    threeWindingsTransformers = [];
+    threeWindingsTransformers;
 
-    generators = [];
+    generators;
 
-    loads = [];
+    loads;
 
-    batteries = [];
+    batteries;
 
-    danglingLines = [];
+    danglingLines;
 
-    hvdcLines = [];
+    hvdcLines;
 
-    lccConverterStations = [];
+    lccConverterStations;
 
-    vscConverterStations = [];
+    vscConverterStations;
 
-    shuntCompensators = [];
+    shuntCompensators;
 
-    staticVarCompensators = [];
+    staticVarCompensators;
 
     voltageLevelsByNominalVoltage = new Map();
 
@@ -55,7 +57,7 @@ export default class Network {
 
     completeSubstationsInfos = () => {
         const nominalVoltagesSet = new Set();
-        this.substations.forEach((substation) => {
+        this.substations.values.forEach((substation) => {
             // sort voltage levels inside substations by nominal voltage
             substation.voltageLevels = substation.voltageLevels.sort(
                 (voltageLevel1, voltageLevel2) =>
@@ -73,7 +75,7 @@ export default class Network {
             });
         });
 
-        this.voltageLevels = this.substations.flatMap(
+        this.voltageLevels = this.substations.values.flatMap(
             (substation) => substation.voltageLevels
         );
 
@@ -87,19 +89,19 @@ export default class Network {
         );
     };
 
-    setSubstations(substations) {
-        this.substations = substations;
-
-        // add more infos
-        this.completeSubstationsInfos();
-    }
-
     updateEquipments(currentEquipments, newEquipements) {
-        currentEquipments.forEach((equipment1, index) => {
+        if (currentEquipments.values === undefined) return;
+        currentEquipments.values.forEach((equipment1, index) => {
             const found = newEquipements.filter(
                 (equipment2) => equipment2.id === equipment1.id
             );
-            currentEquipments[index] = found.length > 0 ? found[0] : equipment1;
+            currentEquipments.values[index] =
+                found.length > 0
+                    ? found[0]
+                    : {
+                          ...currentEquipments.values[index],
+                          ...equipment1,
+                      };
         });
     }
 
@@ -110,18 +112,16 @@ export default class Network {
         this.completeSubstationsInfos();
     }
 
-    setLines(lines) {
-        this.lines = lines;
-        this.linesById = this.lines.reduce(elementIdIndexer, new Map());
+    completeLinesInfos(lines) {
+        this.linesById = lines.reduce(elementIdIndexer, new Map());
     }
 
     updateLines(lines) {
         this.updateEquipments(this.lines, lines);
     }
 
-    setTwoWindingsTransformers(twoWindingsTransformers) {
-        this.twoWindingsTransformers = twoWindingsTransformers;
-        this.twoWindingsTransformersById = this.twoWindingsTransformers.reduce(
+    completeTwoWindingsTransformersInfos(twoWindingsTransformers) {
+        this.twoWindingsTransformersById = twoWindingsTransformers.reduce(
             elementIdIndexer,
             new Map()
         );
@@ -134,9 +134,8 @@ export default class Network {
         );
     }
 
-    setThreeWindingsTransformers(threeWindingsTransformers) {
-        this.threeWindingsTransformers = threeWindingsTransformers;
-        this.threeWindingsTransformersById = this.threeWindingsTransformers.reduce(
+    completeThreeWindingsTransformersInfos(threeWindingsTransformers) {
+        this.threeWindingsTransformersById = threeWindingsTransformers.reduce(
             elementIdIndexer,
             new Map()
         );
@@ -149,52 +148,28 @@ export default class Network {
         );
     }
 
-    setGenerators(generators) {
-        this.generators = generators;
-        this.generatorsById = this.generators.reduce(
-            elementIdIndexer,
-            new Map()
-        );
+    completeGeneratorsInfos(generators) {
+        this.generatorsById = generators.reduce(elementIdIndexer, new Map());
     }
 
     updateGenerators(generators) {
         this.updateEquipments(this.generators, generators);
     }
 
-    setBatteries(batteries) {
-        this.batteries = batteries;
-    }
-
     updateBatteries(batteries) {
         this.updateEquipments(this.batteries, batteries);
-    }
-
-    setLoads(loads) {
-        this.loads = loads;
     }
 
     updateLoads(loads) {
         this.updateEquipments(this.loads, loads);
     }
 
-    setDanglingLines(danglingLines) {
-        this.danglingLines = danglingLines;
-    }
-
     updateDanglingLines(danglingLines) {
         this.updateEquipments(this.danglingLines, danglingLines);
     }
 
-    setShuntCompensators(shuntCompensators) {
-        this.shuntCompensators = shuntCompensators;
-    }
-
     updateShuntCompensators(shuntCompensators) {
         this.updateEquipments(this.shuntCompensators, shuntCompensators);
-    }
-
-    setStaticVarCompensators(staticVarCompensators) {
-        this.staticVarCompensators = staticVarCompensators;
     }
 
     updateStaticVarCompensators(staticVarCompensators) {
@@ -204,24 +179,12 @@ export default class Network {
         );
     }
 
-    setHvdcLines(hvdcLines) {
-        this.hvdcLines = hvdcLines;
-    }
-
     updateHvdcLines(hvdcLines) {
         this.updateEquipments(this.hvdcLines, hvdcLines);
     }
 
-    setLccConverterStations(lccConverterStations) {
-        this.lccConverterStations = lccConverterStations;
-    }
-
     updateLccConverterStations(lccConverterStations) {
         this.updateEquipments(this.lccConverterStations, lccConverterStations);
-    }
-
-    setVscConverterStations(vscConverterStations) {
-        this.vscConverterStations = vscConverterStations;
     }
 
     updateVscConverterStations(vscConverterStations) {
@@ -269,6 +232,76 @@ export default class Network {
             this.getLine(id) ||
             this.getTwoWindingsTransformer(id) ||
             this.getThreeWindingsTransformer(id)
+        );
+    }
+
+    makeEquipmentHandler(cb, errHandler, postUpdateCB) {
+        return new RemoteRessourceHandler(cb, errHandler, postUpdateCB);
+    }
+    constructor(
+        substations,
+        lines,
+        twoWindingsTransformers,
+        threeWindingsTransformers,
+        generators,
+        loads,
+        batteries,
+        danglingLines,
+        hvdcLines,
+        lccConverterStations,
+        vscConverterStations,
+        shuntCompensators,
+        staticVarCompensators,
+        errHandler
+    ) {
+        this.substations = this.makeEquipmentHandler(
+            substations,
+            errHandler,
+            this.completeSubstationsInfos
+        );
+
+        this.lines = this.makeEquipmentHandler(
+            lines,
+            errHandler,
+            this.completeLinesInfos
+        );
+        this.twoWindingsTransformers = this.makeEquipmentHandler(
+            twoWindingsTransformers,
+            errHandler,
+            this.completeTwoWindingsTransformersInfos
+        );
+        this.threeWindingsTransformers = this.makeEquipmentHandler(
+            threeWindingsTransformers,
+            errHandler,
+            this.completeThreeWindingsTransformersInfos
+        );
+        this.generators = this.makeEquipmentHandler(
+            generators,
+            errHandler,
+            this.completeGeneratorsInfos
+        );
+        this.loads = this.makeEquipmentHandler(loads, errHandler);
+        this.batteries = this.makeEquipmentHandler(batteries, errHandler);
+        this.danglingLines = this.makeEquipmentHandler(
+            danglingLines,
+            errHandler
+        );
+        this.hvdcLines = this.makeEquipmentHandler(hvdcLines, errHandler);
+        this.lccConverterStations = this.makeEquipmentHandler(
+            lccConverterStations,
+            errHandler
+        );
+        this.vscConverterStations = this.makeEquipmentHandler(
+            vscConverterStations,
+            errHandler
+        );
+        this.shuntCompensators = this.makeEquipmentHandler(
+            shuntCompensators,
+            errHandler
+        );
+        this.staticVarCompensators = this.makeEquipmentHandler(
+            staticVarCompensators,
+            errHandler
         );
     }
 }

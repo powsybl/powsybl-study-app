@@ -64,6 +64,7 @@
     "close": "Fermer",
 
     "loadingGeoData": "Chargement en cours...",
+    "Loading": "Chargement en cours...",
     "loadingCreationStudy": "Création en cours...",
 
     "centerOnMap": "Centrer sur la carte",
@@ -213,7 +214,7 @@
     "HvdcLineId": "ID ligne HVDC",
     "PowerFactor": "Facteur de puissance",
     "LossFactor": "Facteur de perte",
-    "StopComputation" : "Arrêter le calcul",
+    "StopComputation": "Arrêter le calcul",
     "ColumnsList": "Liste des colonnes",
     "LabelSelectList": "Configurer colonnes",
     "CheckAll": "Sélectionner tout / aucun"
