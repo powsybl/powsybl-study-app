@@ -42,6 +42,7 @@ import FullscreenExitIcon from '@material-ui/icons/FullscreenExit';
 import FullscreenIcon from '@material-ui/icons/Fullscreen';
 
 import { AutoSizer } from 'react-virtualized';
+import LineMenu from './line-menu';
 
 export const SubstationLayout = {
     HORIZONTAL: 'horizontal',
@@ -55,6 +56,8 @@ export const SvgType = {
     VOLTAGE_LEVEL: 'voltage-level',
     SUBSTATION: 'substation',
 };
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const loadingWidth = 150;
 const maxWidthVoltageLevel = 800;
@@ -81,6 +84,14 @@ const useStyles = makeStyles((theme) => ({
         '& .sld-disconnector.sld-constant-color, :not(.sld-breaker).sld-disconnected, .sld-feeder-disconnected, .sld-feeder-disconnected-connected': {
             stroke: theme.palette.text.primary,
         },
+        '& .arrow': {
+            stroke: 'none',
+            fill: theme.palette.text.primary,
+        },
+        '& .arrow-hover': {
+            stroke: 'none',
+            fill: 'none',
+        },
     },
     close: {
         padding: 0,
@@ -101,7 +112,12 @@ const useStyles = makeStyles((theme) => ({
 
 const noSvg = { svg: null, metadata: null, error: null, svgUrl: null };
 
-const SWITCH_COMPONENT_TYPES = ['BREAKER', 'DISCONNECTOR', 'LOAD_BREAK_SWITCH'];
+const SWITCH_COMPONENT_TYPES = new Set([
+    'BREAKER',
+    'DISCONNECTOR',
+    'LOAD_BREAK_SWITCH',
+]);
+const LINE_COMPONENT_TYPES = new Set(['LINE']);
 
 let arrowSvg;
 let arrowHoverSvg;
@@ -179,6 +195,8 @@ const SizedSingleLineDiagram = forwardRef((props, ref) => {
     const svgDraw = useRef();
     const dispatch = useDispatch();
 
+    const network = useSelector((state) => state.network);
+
     const fullScreen = useSelector((state) => state.fullScreen);
 
     const [forceState, updateState] = useState(false);
@@ -189,6 +207,28 @@ const SizedSingleLineDiagram = forwardRef((props, ref) => {
 
     const forceUpdate = useCallback(() => {
         updateState((s) => !s);
+    }, []);
+
+    const [lineMenu, setLineMenu] = useState({
+        position: [-1, -1],
+        lineId: null,
+        svgId: null,
+        display: null,
+    });
+
+    const showLineMenu = useCallback((branchId, svgId, x, y) => {
+        setLineMenu({
+            position: [x, y],
+            lineId: branchId,
+            svgId: svgId,
+            display: true,
+        });
+    }, []);
+
+    const closeLineMenu = useCallback(() => {
+        setLineMenu({
+            display: false,
+        });
     }, []);
 
     useImperativeHandle(
@@ -272,48 +312,129 @@ const SizedSingleLineDiagram = forwardRef((props, ref) => {
         isComputationRunning,
     } = props;
 
+    function addFeederSelectionRect(svgText, theme) {
+        svgText.style.setProperty('fill', theme.palette.background.paper);
+        const selectionBackgroundColor = 'currentColor';
+        const selectionPadding = 4;
+        const bounds = svgText.getBBox();
+        const selectionRect = document.createElementNS(SVG_NS, 'rect');
+        selectionRect.setAttribute('class', 'sld-label-selection');
+        const style = getComputedStyle(svgText);
+        const padding_top = parseInt(style['padding-top']);
+        const padding_left = parseInt(style['padding-left']);
+        const padding_right = parseInt(style['padding-right']);
+        const padding_bottom = parseInt(style['padding-bottom']);
+        selectionRect.setAttribute('stroke-width', '0');
+        selectionRect.setAttribute(
+            'x',
+            (
+                bounds.x -
+                parseInt(style['padding-left']) -
+                selectionPadding
+            ).toString()
+        );
+        selectionRect.setAttribute(
+            'y',
+            (
+                bounds.y -
+                parseInt(style['padding-top']) -
+                selectionPadding
+            ).toString()
+        );
+        selectionRect.setAttribute(
+            'width',
+            (
+                bounds.width +
+                padding_left +
+                padding_right +
+                2 * selectionPadding
+            ).toString()
+        );
+        selectionRect.setAttribute(
+            'height',
+            (
+                bounds.height +
+                padding_top +
+                padding_bottom +
+                2 * selectionPadding
+            ).toString()
+        );
+        selectionRect.setAttribute('fill', selectionBackgroundColor);
+        selectionRect.setAttribute('rx', selectionPadding.toString());
+        if (svgText.hasAttribute('transform')) {
+            selectionRect.setAttribute(
+                'transform',
+                svgText.getAttribute('transform')
+            );
+        }
+        svgText.parentNode.insertBefore(selectionRect, svgText);
+    }
+
+    const showFeederSelection = useCallback(
+        (svgText) => {
+            if (
+                svgText.parentNode.getElementsByClassName('sld-label-selection')
+                    .length === 0
+            ) {
+                addFeederSelectionRect(svgText, theme);
+            }
+        },
+        [theme]
+    );
+
+    const hideFeederSelection = useCallback((svgText) => {
+        svgText.style.removeProperty('fill');
+        const selectionRect = svgText.parentNode.getElementsByClassName(
+            'sld-label-selection'
+        );
+        if (selectionRect.length !== 0) {
+            svgText.parentNode.removeChild(selectionRect[0]);
+        }
+    }, []);
+
     useLayoutEffect(() => {
-        function createSvgArrow(element, position, x, highestY, lowestY) {
-            let svgInsert = document.getElementById(element.id).parentElement;
-            let group = document.createElementNS(
-                'http://www.w3.org/2000/svg',
-                'g'
+        function createSvgArrow(element, position) {
+            const svgElement = document.getElementById(element.id);
+            const svgLabel = svgElement.querySelector('text');
+
+            const svgGroup = document.createElementNS(SVG_NS, 'g');
+            svgGroup.innerHTML = arrowSvg + arrowHoverSvg;
+            svgElement.appendChild(svgGroup);
+
+            svgLabel.setAttribute(
+                'y',
+                parseInt(svgLabel.getAttribute('y')) +
+                    Math.sign(parseInt(svgLabel.getAttribute('y'))) *
+                        svgGroup.getBBox().height
             );
 
-            let y;
+            let x = svgGroup.getBBox().width / 2;
+            let offsetX = 10; // 2 * constante dans SLD
+            let y = parseInt(svgLabel.getAttribute('y'));
+            let offsetY =
+                svgGroup.getBBox().height / 2 - svgLabel.getBBox().height / 2;
             if (position === 'TOP') {
-                y = lowestY - 65;
-                x = x - 22;
+                y = y - offsetY;
+                x = -x - offsetX;
             } else {
-                y = highestY + 65;
-                x = x + 22;
+                y = y + offsetY;
+                x = x + offsetX;
             }
-
             if (position === 'BOTTOM') {
-                group.setAttribute(
+                svgGroup.setAttribute(
                     'transform',
                     'translate(' + x + ',' + y + ') rotate(180)'
                 );
             } else {
-                group.setAttribute(
+                svgGroup.setAttribute(
                     'transform',
                     'translate(' + x + ',' + y + ')'
                 );
             }
 
-            group.innerHTML = arrowSvg + arrowHoverSvg;
-
-            //set initial colors depending on the theme
-            group.getElementsByClassName('arrow_hover')[0].style.fill =
-                theme.circle.fill;
-            group.getElementsByClassName('arrow')[0].style.fill =
-                theme.arrow.fill;
-
-            svgInsert.appendChild(group);
-
             // handling the navigation between voltage levels
-            group.style.cursor = 'pointer';
-            group.addEventListener('click', function (e) {
+            svgGroup.style.cursor = 'pointer';
+            svgGroup.addEventListener('click', function (e) {
                 const id = document.getElementById(element.id).id;
                 const meta = svg.metadata.nodes.find(
                     (other) => other.id === id
@@ -322,21 +443,20 @@ const SizedSingleLineDiagram = forwardRef((props, ref) => {
             });
 
             //handling the color changes when hovering
-            group.addEventListener('mouseenter', function (e) {
-                e.target.querySelector('.arrow_hover').style.fill =
-                    theme.circle_hover.fill;
+            svgGroup.addEventListener('mouseenter', function (e) {
                 e.target.querySelector('.arrow').style.fill =
-                    theme.arrow_hover.fill;
+                    theme.palette.background.paper;
+                e.target.querySelector('.arrow-hover').style.fill =
+                    'currentColor';
             });
 
-            group.addEventListener('mouseleave', function (e) {
-                e.target.querySelector('.arrow_hover').style.fill =
-                    theme.circle.fill;
-                e.target.querySelector('.arrow').style.fill = theme.arrow.fill;
+            svgGroup.addEventListener('mouseleave', function (e) {
+                e.target.querySelector('.arrow').style.fill = 'currentColor';
+                e.target.querySelector('.arrow-hover').style.fill = 'none';
             });
         }
 
-        function addNavigationArrow(svg) {
+        function addNavigationArrows(svg) {
             let navigable = svg.metadata.nodes.filter(
                 (el) => el.nextVId !== null
             );
@@ -352,50 +472,14 @@ const SizedSingleLineDiagram = forwardRef((props, ref) => {
                 return vlList.indexOf(element.nextVId) === -1;
             });
 
-            let highestY = new Map();
-            let lowestY = new Map();
-            let y;
-
             navigable.forEach((element) => {
-                let transform = document
-                    .getElementById(element.id)
-                    .getAttribute('transform')
-                    .split(',');
-
-                y = parseInt(transform[1].match(/\d+/));
-                if (
-                    highestY.get(element.vid) === undefined ||
-                    y > highestY.get(element.vid)
-                ) {
-                    highestY.set(element.vid, y);
-                }
-                if (
-                    lowestY.get(element.vid) === undefined ||
-                    y < lowestY.get(element.vid)
-                ) {
-                    lowestY.set(element.vid, y);
-                }
-            });
-
-            navigable.forEach((element) => {
-                let transform = document
-                    .getElementById(element.id)
-                    .getAttribute('transform')
-                    .split(',');
-                let x = parseInt(transform[0].match(/\d+/));
-                createSvgArrow(
-                    element,
-                    element.direction,
-                    x,
-                    highestY.get(element.vid),
-                    lowestY.get(element.vid)
-                );
+                createSvgArrow(element, element.direction);
             });
         }
 
         if (svg.svg) {
             //need to add it there so the bbox has the right size
-            addNavigationArrow(svg);
+            addNavigationArrows(svg);
             // calculate svg width and height from svg bounding box
             const divElt = document.getElementById('sld-svg');
             const svgEl = divElt.getElementsByTagName('svg')[0];
@@ -441,12 +525,50 @@ const SizedSingleLineDiagram = forwardRef((props, ref) => {
             draw.on('panEnd', function (evt) {
                 divElt.style.cursor = 'default';
             });
-            addNavigationArrow(svg);
+            addNavigationArrows(svg);
+
+            // handling the right click on a branch feeder (menu)
+            if (!isComputationRunning) {
+                const lineFeeders = svg.metadata.nodes.filter(
+                    (element) =>
+                        LINE_COMPONENT_TYPES.has(element.componentType) &&
+                        // FIXME : currently ony lines (and not transformers) are taken into account
+                        // This test must be removed
+                        network.getLine(element.equipmentId)
+                );
+                lineFeeders.forEach((feeder) => {
+                    const svgText = document
+                        .getElementById(feeder.id)
+                        .querySelector('text');
+                    svgText.addEventListener('mouseenter', function (event) {
+                        showFeederSelection(event.currentTarget);
+                    });
+                    svgText.addEventListener('mouseleave', function (event) {
+                        hideFeederSelection(event.currentTarget);
+                    });
+                    svgText.addEventListener('contextmenu', function (event) {
+                        showLineMenu(
+                            feeder.equipmentId,
+                            feeder.id,
+                            event.x,
+                            event.y
+                        );
+                    });
+                });
+
+                if (lineMenu.display) {
+                    showFeederSelection(
+                        document
+                            .getElementById(lineMenu.svgId)
+                            .querySelector('text')
+                    );
+                }
+            }
 
             // handling the click on a switch
             if (!isComputationRunning) {
                 const switches = svg.metadata.nodes.filter((element) =>
-                    SWITCH_COMPONENT_TYPES.includes(element.componentType)
+                    SWITCH_COMPONENT_TYPES.has(element.componentType)
                 );
                 switches.forEach((aSwitch) => {
                     const domEl = document.getElementById(aSwitch.id);
@@ -468,10 +590,15 @@ const SizedSingleLineDiagram = forwardRef((props, ref) => {
         }
         // Note: onNextVoltageLevelClick and onBreakerClick don't change
     }, [
+        network,
         svg,
         onNextVoltageLevelClick,
         onBreakerClick,
         isComputationRunning,
+        lineMenu,
+        showLineMenu,
+        showFeederSelection,
+        hideFeederSelection,
         svgType,
         theme,
     ]);
@@ -497,6 +624,7 @@ const SizedSingleLineDiagram = forwardRef((props, ref) => {
         //TODO, these are from the previous useLayoutEffect
         //how to refactor to avoid repeating them here ?
         svg,
+        lineMenu,
         onNextVoltageLevelClick,
         onBreakerClick,
         isComputationRunning,
@@ -597,6 +725,13 @@ const SizedSingleLineDiagram = forwardRef((props, ref) => {
                         id="sld-svg"
                         className={classes.divSld}
                         dangerouslySetInnerHTML={{ __html: svg.svg }}
+                    />
+                )}
+                {lineMenu.display && (
+                    <LineMenu
+                        line={network.getLine(lineMenu.lineId)}
+                        position={lineMenu.position}
+                        handleClose={closeLineMenu}
                     />
                 )}
                 {!loadingState &&

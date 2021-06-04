@@ -65,6 +65,7 @@ import LoopIcon from '@material-ui/icons/Loop';
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
 import SecurityAnalysisResult from './security-analysis-result';
 import LoadFlowResult from './loadflow-result';
+import LineMenu from './line-menu';
 import Drawer from '@material-ui/core/Drawer';
 import IconButton from '@material-ui/core/IconButton';
 import clsx from 'clsx';
@@ -206,6 +207,12 @@ const StudyPane = (props) => {
     const filteredNominalVoltages = useSelector(
         (state) => state.filteredNominalVoltages
     );
+
+    const [lineMenu, setLineMenu] = useState({
+        position: [-1, -1],
+        line: null,
+        display: null,
+    });
 
     const [displayedSubstationId, setDisplayedSubstationId] = useState(null);
 
@@ -691,7 +698,7 @@ const StudyPane = (props) => {
                     studyUpdatedForce.eventData.headers['substationsIds'];
                 const tmp = ids.substring(1, ids.length - 1); // removing square brackets
                 if (tmp && tmp.length > 0) {
-                    const substationsIds = tmp.split(',');
+                    const substationsIds = tmp.split(', ');
                     updateNetwork(substationsIds);
                 }
             }
@@ -770,6 +777,20 @@ const StudyPane = (props) => {
         network.useEquipment(equipments.substations);
         network.useEquipment(equipments.lines);
     }, [network]);
+
+    function showLineMenu(line, x, y) {
+        setLineMenu({
+            position: [x, y],
+            line: line,
+            display: true,
+        });
+    }
+
+    function closeLineMenu() {
+        setLineMenu({
+            display: false,
+        });
+    }
 
     function renderMapView() {
         let displayedVoltageLevel;
@@ -910,6 +931,7 @@ const StudyPane = (props) => {
                         lineFlowAlertThreshold={lineFlowAlertThreshold}
                         ref={mapRef}
                         onSubstationClick={openVoltageLevel}
+                        onLineClick={showLineMenu}
                         visible={props.view === StudyView.MAP}
                         onSubstationClickChooseVoltageLevel={
                             chooseVoltageLevelForSubstation
@@ -974,6 +996,13 @@ const StudyPane = (props) => {
                             computationStopped={computationStopped}
                         />
                     </div>
+                    {lineMenu.display && (
+                        <LineMenu
+                            line={lineMenu.line}
+                            position={lineMenu.position}
+                            handleClose={closeLineMenu}
+                        />
+                    )}
                 </div>
                 <Drawer
                     variant={'persistent'}
