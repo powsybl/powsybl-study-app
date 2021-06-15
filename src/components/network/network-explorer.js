@@ -18,6 +18,7 @@ import { darken, lighten, makeStyles } from '@material-ui/core/styles';
 import ListItem from '@material-ui/core/ListItem';
 import SearchIcon from '@material-ui/icons/Search';
 import TextField from '@material-ui/core/TextField';
+import Tooltip from '@material-ui/core/Tooltip';
 
 import Divider from '@material-ui/core/Divider';
 import {
@@ -78,7 +79,32 @@ const useStyles = makeStyles((theme) => ({
             color: theme.palette.type === 'dark' ? '#000' : '#FFF',
         },
     },
+    selectedTooltipName: {
+        height: (itemSize * 3) / 4,
+        fontSize: '20px',
+        padding: '8px',
+        '& > span': {
+            width: 230,
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            textOverflow: 'ellipsis',
+        },
+    },
 }));
+
+const useStylesCustomTooltip = makeStyles((theme) => ({
+    tooltip: {
+        boxShadow: theme.shadows[1],
+        fontSize: '20px',
+        textTransform: 'capitalize',
+    },
+}));
+
+const CustomTooltip = (props) => {
+    const classes = useStylesCustomTooltip();
+
+    return <Tooltip arrow classes={classes} {...props} />;
+};
 
 const NetworkExplorer = ({
     substations,
@@ -124,6 +150,8 @@ const NetworkExplorer = ({
     );
 
     const listeRef = useRef(null);
+
+    const maxLengthSubstationName = 21; // Max length of substation name
 
     const generateFilteredSubstation = useCallback(
         (entry) => {
@@ -243,7 +271,19 @@ const NetworkExplorer = ({
     );
 
     const subStationRow = ({ index, key, parent, style }) => {
+        let substationAndCountry = '';
         const substation = filteredVoltageLevels[index][0];
+
+        if (!useName) {
+            substationAndCountry = substation.name.concat(
+                substationInfo(substation)
+            );
+        } else {
+            substationAndCountry = substation.id.concat(
+                substationInfo(substation)
+            );
+        }
+
         return (
             <CellMeasurer
                 cache={cache}
@@ -254,68 +294,98 @@ const NetworkExplorer = ({
             >
                 {({ measure, registerChild }) => (
                     <div ref={registerChild} style={style}>
-                        <ListItem
-                            component={'li'}
-                            button
-                            key={substation.id}
-                            className={
-                                selectItem === substation.id
-                                    ? classes.selectedSubstation
-                                    : classes.listSubHeaderRoot
-                            }
-                            onClick={() =>
-                                onSubstationDisplayClick &&
-                                onSubstationDisplayClick(substation.id)
-                            }
-                        >
-                            <Grid
-                                container
-                                direction={'row'}
-                                className={classes.noCRGrid}
-                            >
-                                <Grid item>
-                                    <ListItemText
-                                        primary={
-                                            <Typography
-                                                color="textPrimary"
-                                                className={
-                                                    classes.substationText
-                                                }
-                                                noWrap
-                                            >
-                                                {useName
-                                                    ? substation.name
-                                                    : substation.id}
-                                            </Typography>
+                        {substationAndCountry.length >
+                        maxLengthSubstationName ? (
+                            <CustomTooltip title={substationAndCountry}>
+                                <ListItem
+                                    component={'li'}
+                                    button
+                                    key={substation.id}
+                                    className={classes.selectedTooltipName}
+                                    onClick={() =>
+                                        onSubstationDisplayClick &&
+                                        onSubstationDisplayClick(substation.id)
+                                    }
+                                >
+                                    <span>{substationAndCountry}</span>
+                                    <IconButton
+                                        onClick={(e) =>
+                                            onDisplaySubstationFocusHandler(
+                                                e,
+                                                substation
+                                            )
                                         }
-                                    />
-                                </Grid>
-                                <Grid item>
-                                    <ListItemText
-                                        className={classes.countryText}
-                                        primary={
-                                            <Typography
-                                                style={{ overflow: 'hidden' }}
-                                                color="textSecondary"
-                                                noWrap
-                                            >
-                                                {substationInfo(substation)}
-                                            </Typography>
-                                        }
-                                    />
-                                </Grid>
-                            </Grid>
-                            <IconButton
-                                onClick={(e) =>
-                                    onDisplaySubstationFocusHandler(
-                                        e,
-                                        substation
-                                    )
+                                    >
+                                        <GpsFixedIcon />
+                                    </IconButton>
+                                </ListItem>
+                            </CustomTooltip>
+                        ) : (
+                            <ListItem
+                                component={'li'}
+                                button
+                                key={substation.id}
+                                className={
+                                    selectItem === substation.id
+                                        ? classes.selectedSubstation
+                                        : classes.listSubHeaderRoot
+                                }
+                                onClick={() =>
+                                    onSubstationDisplayClick &&
+                                    onSubstationDisplayClick(substation.id)
                                 }
                             >
-                                <GpsFixedIcon />
-                            </IconButton>
-                        </ListItem>
+                                <Grid
+                                    container
+                                    direction={'row'}
+                                    className={classes.noCRGrid}
+                                >
+                                    <Grid item>
+                                        <ListItemText
+                                            primary={
+                                                <Typography
+                                                    color="textPrimary"
+                                                    className={
+                                                        classes.substationText
+                                                    }
+                                                    noWrap
+                                                >
+                                                    {useName
+                                                        ? substation.name
+                                                        : substation.id}
+                                                </Typography>
+                                            }
+                                        />
+                                    </Grid>
+                                    <Grid item>
+                                        <ListItemText
+                                            className={classes.countryText}
+                                            primary={
+                                                <Typography
+                                                    style={{
+                                                        overflow: 'hidden',
+                                                    }}
+                                                    color="textSecondary"
+                                                    noWrap
+                                                >
+                                                    {substationInfo(substation)}
+                                                </Typography>
+                                            }
+                                        />
+                                    </Grid>
+                                </Grid>
+                                <IconButton
+                                    onClick={(e) =>
+                                        onDisplaySubstationFocusHandler(
+                                            e,
+                                            substation
+                                        )
+                                    }
+                                >
+                                    <GpsFixedIcon />
+                                </IconButton>
+                            </ListItem>
+                        )}
                         {filteredVoltageLevels[index][1].map((vl) =>
                             voltageLevelRow(vl)
                         )}
